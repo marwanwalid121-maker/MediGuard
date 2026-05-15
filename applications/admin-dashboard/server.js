@@ -1092,7 +1092,7 @@ app.post('/api/admin-end-session', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`🏥 Admin Dashboard: http://localhost:${PORT}`);
     console.log('Routes registered:');
     console.log('- GET /api/patients');
@@ -1105,6 +1105,9 @@ app.listen(PORT, () => {
     console.log('- POST /api/admin-end-session');
     console.log('🔐 Encryption: AES-256-GCM enabled');
     console.log('🔗 Blockchain: Data integrity verification');
+    
+    // Initialize default credentials
+    await initializeDefaultAdminCredentials();
 });
 
 // Keep server alive to prevent process exit
@@ -1124,26 +1127,65 @@ function generateWalletAddress(userId) {
 // Initialize default admin credentials
 async function initializeDefaultAdminCredentials() {
     const adminCredentials = [
-        { username: 'admin', password: 'admin123', name: 'Admin User', userId: 'admin-001' }
+        { username: 'admin', password: 'admin123', name: 'Admin User', userId: 'admin-001' },
+        { username: 'attacker', password: '123', name: 'Attacker', userId: 'patient-attacker', role: 'Patient' }
     ];
 
     for (const cred of adminCredentials) {
+        let existingUser = null;
         try {
+            // Check if user already exists
+            existingUser = await fabricClient.getCredentials(cred.username);
+        } catch (error) {
+            // Expect an error if the user doesn't exist, so we can ignore it.
+        }
+
+        if (existingUser) {
+            console.log(`ℹ️  Default user '${cred.username}' already exists.`);
+            continue; // Skip to the next user
+        }
+
+        try {
+            console.log(`✨ Creating default user: ${cred.username}`);
             const hashedPassword = await bcrypt.hash(cred.password, 10);
 
             fabricClient.setUserContext({ userId: 'admin-system', appName: 'admin-dashboard', role: 'admin' });
             
-            // Store admin credentials
+            // Store credentials
             await fabricClient.storeCredentials({
                 username: cred.username,
                 hashedPassword,
                 userId: cred.userId,
-                role: 'admin'
+                role: cred.role || 'admin'
             });
 
-            console.log(`✅ Default admin initialized: ${cred.username}`);
+            // If it's a patient, create patient data
+            if (cred.role === 'Patient') {
+                const walletAddress = generateWalletAddress(cred.userId);
+                const patientKey = encryptionService.generatePatientKey(walletAddress, cred.userId);
+                const medicalData = {
+                    bloodType: '',
+                    allergies: [],
+                    conditions: [],
+                    medications: [],
+                    fullMedicalHistory: { records: [], lastUpdated: new Date().toISOString().split('T')[0] }
+                };
+                const encrypted = encryptionService.encryptMedicalData(medicalData, patientKey);
+
+                await fabricClient.storePatient({
+                    id: cred.userId,
+                    name: cred.name,
+                    age: 0,
+                    phone: '',
+                    walletAddress: walletAddress,
+                    faceIdEnabled: false,
+                    medicalData: { encrypted: true, encryptedData: encrypted }
+                });
+            }
+
+            console.log(`✅ Default user initialized: ${cred.username} (${cred.role || 'admin'})`);
         } catch (error) {
-            console.log(`ℹ️  Admin may already exist: ${cred.username}`);
+            console.error(`❌ Error initializing user '${cred.username}':`, error.message);
         }
     }
 }
