@@ -1,1 +1,32 @@
 # Dependencies
+# Environment variables with secrets
+.env
+
+# Wallet files (contain private keys)
+wallet/
+**/wallet/
+
+# Blockchain private keys and certificates
+# hyperledger-fabric/network/crypto-config/
+
+# Node modules
+# node_modules/
+# **/node_modules/
+
+# Logs
+# *.log
+# logs/
+# **/logs/
+
+# OS files
+# .DS_Store
+# Thumbs.db
+
+# IDE
+# .vscode/
+# .idea/
+
+# Build artifacts
+# dist/
+# build/
+# *.tar.gz
