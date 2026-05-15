@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediGuard Control Center</title>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+        .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card h3 { color: #333; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .btn { border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-weight: 500; transition: background 0.3s; margin: 3px; font-size: 14px; }
+        .btn-refresh { background: #007bff; color: white; }
+        .btn-refresh:hover { background: #0056b3; }
+        .btn-clear { background: #dc3545; color: white; }
+        .btn-clear:hover { background: #a71d2a; }
+        .toggle-container { background: linear-gradient(135deg, #f8f9fb 0%, #ffffff 100%); padding: 16px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e9ecef; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #007bff; }
+        input:checked + .slider:before { transform: translateX(26px); }
+        .tx-card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-top: 12px; max-width: 480px; word-wrap: break-word; overflow-wrap: anywhere; transition: all 0.3s; }
+        .tx-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+        .tx-status { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 8px; font-size: 1.1rem; }
+        .tx-status.success { color: #28a745; }
+        .tx-status.failed { color: #dc3545; }
+        .tx-time { color: #666; font-size: 0.85rem; font-weight: normal; }
+        .tx-field { background: #f8f9fa; border-radius: 6px; padding: 6px 8px; font-family: "Roboto Mono", "Courier New", monospace; font-size: 0.9rem; color: #333; margin-bottom: 6px; word-wrap: break-word; overflow-wrap: anywhere; }
+        .tx-field-label { font-weight: 600; color: #495057; margin-right: 8px; font-family: system-ui; }
+        .tx-meta { font-size: 0.85rem; color: #555; margin-top: 6px; display: flex; justify-content: space-between; }
+        .transactions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px; }
+        @media (max-width: 768px) { .transactions-grid { grid-template-columns: 1fr; } .tx-card { max-width: 100%; } }
+        .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .status.active { background: #d4edda; color: #155724; }
+        .status.pending { background: #fff3cd; color: #856404; }
+        .status.complete { background: #cce7ff; color: #004085; }
+        .otp-display { font-size: 32px; font-weight: bold; color: #28a745; text-align: center; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 10px; }
+        .log { background: #1e1e1e; color: #00ff00; padding: 15px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
+        .patient-card, .hospital-card { border-left: 4px solid #007bff; }
+        .session-card { border-left: 4px solid #28a745; }
+        .control-card { border-left: 4px solid #ffc107; }
+        input, select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 3px; width: 100%; }
+        .stats { display: flex; justify-content: space-around; margin: 20px 0; }
+        .stat { text-align: center; }
+        .stat-number { font-size: 24px; font-weight: bold; color: #007bff; }
+        .stat-label { color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏥 MediGuard Control Center</h1>
+        <p>Session-Based OTP System | Zero Gas Fees | Hyperledger Fabric</p>
+    </div>
+
+    <div class="container">
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number" id="activeSessionsCount">0</div>
+                <div class="stat-label">Active Sessions</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number" id="totalTransactions">0</div>
+                <div class="stat-label">Total Transactions</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number" id="patientsCount">2</div>
+                <div class="stat-label">Registered Patients</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number" id="hospitalsCount">1</div>
+                <div class="stat-label">Connected Hospitals</div>
+            </div>
+        </div>
+
+        <div class="grid">
+
+
+
+
+
+
+
+
+
+        </div>
+
+        <!-- Blockchain Transactions - Full Width -->
+        <div class="card" style="margin-top: 20px; width: fit-content; min-width: 600px;">
+            <h3>🔗 Recent Transactions</h3>
+            <div class="toggle-container">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <label class="switch">
+                        <input type="checkbox" id="hideWalletAddresses" onchange="loadTransactions()">
+                        <span class="slider"></span>
+                    </label>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-refresh" onclick="loadTransactions()">🔄 Refresh</button>
+                        <button class="btn btn-clear" onclick="clearTransactions()">🗑️ Clear All</button>
+                    </div>
+                </div>
+            </div>
+            <div id="transactionsList"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        let patientMonitoringInterval = null;
+        const hospitalWallet = '0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh';
+
+
+
+
+
+        async function checkActiveSessions() {
+            try {
+                const response = await fetch('/api/active-sessions');
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('activeSessionsCount').textContent = result.sessions.length;
+                }
+            } catch (error) {
+                console.error('Check sessions error:', error.message);
+            }
+        }
+
+
+
+        async function loadTransactions() {
+            try {
+                const response = await fetch('/api/transactions');
+                const allTransactions = await response.json();
+                
+                // Filter out ADMIN_SECURED_ACCESS, ADMIN_CONTROLLED_ACCESS, QR_GENERATED, and LOGIN transactions
+                const transactions = allTransactions.filter(tx => 
+                    tx.transaction?.type !== 'ADMIN_SECURED_ACCESS' && 
+                    tx.transaction?.type !== 'ADMIN_CONTROLLED_ACCESS' &&
+                    tx.transaction?.type !== 'QR_GENERATED' &&
+                    tx.transaction?.type !== 'LOGIN'
+                );
+                
+                const hideWallets = document.getElementById('hideWalletAddresses').checked;
+                
+                document.getElementById('totalTransactions').textContent = transactions.length;
+                
+                const list = document.getElementById('transactionsList');
+                const transactionsHtml = transactions.slice(0, 10).map(tx => {
+                    let fromWallet = tx.transaction ? tx.transaction.fromWallet : '';
+                    let toWallet = tx.transaction ? tx.transaction.toWallet : '';
+                    
+                    if (tx.transaction) {
+                        if (hideWallets) {
+                            fromWallet = fromWallet.includes('0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh') || fromWallet === 'hospital-wallet' ? '(Hospital)' : '(Patient)';
+                            toWallet = toWallet.includes('0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh') || toWallet === 'hospital-wallet' ? '(Hospital)' : '(Patient)';
+                        } else {
+                            if (fromWallet === 'hospital-wallet') fromWallet = '0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh';
+                            if (fromWallet === 'patient-wallet') fromWallet = '0xFAB9876543210fedcba9876543210fedcba987654';
+                            if (fromWallet === 'unknown') fromWallet = 'Unknown Wallet';
+                            
+                            if (toWallet === 'hospital-wallet') toWallet = '0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh';
+                            if (toWallet === 'patient-wallet') toWallet = '0xFAB9876543210fedcba9876543210fedcba987654';
+                            if (toWallet === 'unknown') toWallet = 'Unknown Wallet';
+                        }
+                    }
+                    
+                    const statusClass = tx.accessMethod === 'UNAUTHORIZED_ACCESS' ? 'failed' : 'success';
+                    const statusText = tx.accessMethod === 'UNAUTHORIZED_ACCESS' ? '❌ UNAUTHORIZED_ACCESS' : 
+                                     tx.transaction?.type === 'QR_SCANNED' ? '✅ QR_SCANNED' : 
+                                     `✅ ${tx.transaction?.type || tx.accessMethod}`;
+                    
+                    return `
+                        <div class="tx-card">
+                            <div class="tx-status ${statusClass}">
+                                <span>${statusText}</span>
+                                <span class="tx-time">${new Date(tx.timestamp).toLocaleString()}</span>
+                            </div>
+                            ${tx.transaction ? `
+                                <div class="tx-field">
+                                    <span class="tx-field-label">TX ID:</span>${tx.transaction.id}
+                                </div>
+                                <div class="tx-field">
+                                    <span class="tx-field-label">From:</span>${fromWallet}
+                                </div>
+                                <div class="tx-field">
+                                    <span class="tx-field-label">To:</span>${toWallet}
+                                </div>
+                                ${tx.transaction.details ? `<div class="tx-field"><span class="tx-field-label">Details:</span>${tx.transaction.details}</div>` : ''}
+                                ${tx.transaction.attemptedOTP ? `<div class="tx-field" style="background: #ffe6e6; color: #dc3545;"><span class="tx-field-label">Failed OTP:</span>${tx.transaction.attemptedOTP}</div>` : ''}
+                            ` : ''}
+                            <div class="tx-meta">
+                                <span>Patient: <strong>${tx.patientId}</strong></span>
+                                <span>Hospital: <strong>${tx.hospitalId}</strong></span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                list.innerHTML = transactionsHtml ? `<div class="transactions-grid">${transactionsHtml}</div>` : '<p style="text-align: center; color: #666; padding: 20px;">No transactions yet</p>';
+            } catch (error) {
+                console.error('Load transactions error:', error.message);
+            }
+        }
+
+        async function clearTransactions() {
+            try {
+                const response = await fetch('/api/transactions/clear', { method: 'DELETE' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('✅ Transactions cleared');
+                    document.getElementById('totalTransactions').textContent = '0';
+                    document.getElementById('transactionsList').innerHTML = '<p>No transactions</p>';
+                } else {
+                    console.error('Clear transactions failed:', result.error);
+                }
+            } catch (error) {
+                console.error('Clear transactions error:', error.message);
+            }
+        }
+
+
+
+        function updateCurrentSession() {
+            checkActiveSessions();
+        }
+
+        // Auto-start monitoring and load initial data
+        window.onload = function() {
+            loadTransactions();
+            checkActiveSessions();
+            
+            // Auto-refresh stats every 10 seconds
+            setInterval(() => {
+                checkActiveSessions();
+                loadTransactions();
+            }, 10000);
+        };
+    </script>
+</body>
+</html>

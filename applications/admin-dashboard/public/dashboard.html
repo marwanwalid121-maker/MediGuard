@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .group { display: flex; gap: 20px; }
+        .group-card { flex: 1; }
+        h1 { color: #2c3e50; }
+        h2 { color: #34495e; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .patient, .hospital { padding: 10px; margin: 5px 0; background: #ecf0f1; border-radius: 4px; }
+        .transaction { padding: 10px; margin: 5px 0; background: #e8f5e8; border-left: 4px solid #27ae60; }
+        .wallet { font-family: monospace; font-size: 12px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🏥 Healthcare Admin Dashboard</h1>
+            <p>Monitor transactions and manage wallet groups</p>
+        </div>
+
+        <div class="group">
+            <div class="group-card card">
+                <h2>👥 Patient Group</h2>
+                <div id="patients"></div>
+            </div>
+            
+            <div class="group-card card">
+                <h2>🏥 Hospital Group</h2>
+                <div id="hospitals"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 Transaction Monitor</h2>
+            <div style="margin-bottom: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <input type="checkbox" id="hideWalletAddresses" onchange="toggleWalletDisplay()" style="transform: scale(1.2);">
+                    <span style="font-weight: bold;">🔄 Toggle: Show (Patient)/(Hospital) instead of wallet addresses</span>
+                </label>
+                <button onclick="clearTransactions()" style="background: #e74c3c; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Clear History</button>
+            </div>
+            <div id="transactions"></div>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            const [patients, hospitals, transactions] = await Promise.all([
+                fetch('/api/patients').then(r => r.json()),
+                fetch('/api/hospitals').then(r => r.json()),
+                fetch('/api/transactions').then(r => r.json())
+            ]);
+
+            document.getElementById('patients').innerHTML = patients.map(p => `
+                <div class="patient">
+                    <strong>${p.name}</strong><br>
+                    <div class="wallet">${p.walletAddress}</div>
+                    Face ID: ${p.faceIdEnabled ? '✅' : '❌'}
+                </div>
+            `).join('');
+
+            document.getElementById('hospitals').innerHTML = hospitals.map(h => `
+                <div class="hospital">
+                    <strong>${h.name}</strong><br>
+                    <div class="wallet">${h.walletAddress}</div>
+                </div>
+            `).join('');
+
+            displayTransactions(transactions);
+        }
+
+        async function clearTransactions() {
+            if (confirm('Clear all transaction history?')) {
+                try {
+                    const response = await fetch('/api/transactions/clear', { 
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        alert('Transaction history cleared successfully!');
+                        loadData();
+                    } else {
+                        const errorText = await response.text();
+                        console.error('Server response:', response.status, errorText);
+                        alert(`Failed to clear transactions: ${response.status} - ${errorText}`);
+                    }
+                } catch (error) {
+                    console.error('Network error:', error);
+                    alert('Network error: ' + error.message);
+                }
+            }
+        }
+
+        function displayTransactions(transactions) {
+            const hideWallets = document.getElementById('hideWalletAddresses').checked;
+            
+            document.getElementById('transactions').innerHTML = transactions.length ? 
+                transactions.sort((a, b) => {
+                    const timeA = new Date(a.timestamp || a.createdAt).getTime();
+                    const timeB = new Date(b.timestamp || b.createdAt).getTime();
+                    return timeB - timeA;
+                }).map(t => {
+                    let fromWallet = t.transaction ? t.transaction.fromWallet : '';
+                    let toWallet = t.transaction ? t.transaction.toWallet : '';
+                    
+                    if (t.transaction) {
+                        if (hideWallets) {
+                            // Show simple labels when toggle is ON
+                            fromWallet = fromWallet.includes('0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh') || fromWallet === 'hospital-wallet' ? '(Hospital)' : '(Patient)';
+                            toWallet = toWallet.includes('0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh') || toWallet === 'hospital-wallet' ? '(Hospital)' : '(Patient)';
+                        } else {
+                            // Show full wallet addresses when toggle is OFF
+                            if (fromWallet === 'hospital-wallet') fromWallet = '0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh';
+                            if (fromWallet === 'patient-wallet') fromWallet = '0xFAB9876543210fedcba9876543210fedcba987654';
+                            if (fromWallet === 'unknown') fromWallet = 'Unknown Wallet';
+                            
+                            if (toWallet === 'hospital-wallet') toWallet = '0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh';
+                            if (toWallet === 'patient-wallet') toWallet = '0xFAB9876543210fedcba9876543210fedcba987654';
+                            if (toWallet === 'unknown') toWallet = 'Unknown Wallet';
+                        }
+                    }
+                    
+                    return `
+                        <div class="transaction">
+                            <strong>${t.transaction ? 'Blockchain Transaction' : 'Data Access'}</strong> - ${new Date(t.timestamp).toLocaleString()}<br>
+                            ${t.transaction ? `
+                                <div style="font-size: 12px; margin: 5px 0;">
+                                    <strong>TX ID:</strong> ${t.transaction.id}<br>
+                                    <strong>Type:</strong> ${t.transaction.type}<br>
+                                    <strong>From:</strong> ${fromWallet}<br>
+                                    <strong>To:</strong> ${toWallet}
+                                </div>
+                            ` : ''}
+                            Patient: ${t.patientId} | Hospital: ${t.hospitalId} | Method: ${t.accessMethod}
+                        </div>
+                    `;
+                }).join('') : '<p>No transactions yet</p>';
+        }
+        
+        function toggleWalletDisplay() {
+            // Re-render transactions with current data
+            fetch('/api/transactions')
+                .then(r => r.json())
+                .then(transactions => displayTransactions(transactions));
+        }
+
+        loadData();
+        setInterval(loadData, 5000); // Refresh every 5 seconds
+    </script>
+</body>
+</html>

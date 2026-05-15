@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; }
+        .header { background: #2c5aa0; color: white; padding: 20px; text-align: center; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+        .card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .pending-scans { border-left: 4px solid #ff6b35; }
+        .patient-data { border-left: 4px solid #28a745; }
+        .patient-info { background: #e8f5e8; padding: 15px; border-radius: 5px; margin-bottom: 15px; }
+        .form-section { margin: 20px 0; }
+        .form-row { display: flex; gap: 15px; margin: 10px 0; }
+        .form-group { flex: 1; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .add-entry-btn { background: #17a2b8; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; margin: 10px 0; }
+        .history-cards { max-height: 400px; overflow-y: auto; }
+        .history-card { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin: 10px 0; }
+        .history-card h4 { color: #495057; margin-bottom: 10px; }
+        .history-card .date { background: #007bff; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+        .history-card .hospital { color: #28a745; font-weight: bold; }
+        .history-card .doctor { color: #6c757d; }
+        .edit-btn { background: #007bff; color: white; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 10px; }
+        .save-btn { background: #28a745; color: white; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin: 5px; }
+        .cancel-btn { background: #6c757d; color: white; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin: 5px; }
+        .edit-form { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 10px; margin-top: 10px; }
+        .edit-form input { width: 100%; padding: 5px; margin: 3px 0; border: 1px solid #ddd; border-radius: 3px; }
+        .scan-item { background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 8px; border: 2px solid #dee2e6; transition: all 0.3s ease; }
+        .scan-item:hover { border-color: #007bff; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .otp-input { padding: 12px; border: 2px solid #ddd; border-radius: 5px; margin: 10px; font-size: 16px; width: 150px; text-align: center; }
+        .otp-input:focus { border-color: #007bff; outline: none; box-shadow: 0 0 5px rgba(0,123,255,0.3); }
+        .history-editor { width: 100%; height: 400px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.4; }
+        .hidden { display: none; }
+        .notification { position: fixed; top: 20px; right: 20px; background: #28a745; color: white; padding: 15px; border-radius: 5px; z-index: 1000; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏥 Hospital Dashboard</h1>
+        <p>St. Mary Medical Center - Doctor Portal</p>
+    </div>
+
+    <div class="container">
+
+        
+        <div class="card pending-scans">
+            <h2>📱 Pending QR Scans</h2>
+            <div id="pendingScans">
+                <p>No pending scans...</p>
+            </div>
+        </div>
+
+        <div class="card patient-data hidden" id="patientSection">
+            <h2>👤 Patient Data</h2>
+            <div id="patientInfo" class="patient-info"></div>
+            
+            <div class="form-section">
+                <h3>📅 Add New Appointment</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date:</label>
+                        <input type="date" id="newDate" value="">
+                    </div>
+                    <div class="form-group">
+                        <label>Hospital:</label>
+                        <input type="text" id="newHospital" placeholder="Hospital name">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Doctor:</label>
+                        <input type="text" id="newDoctor" placeholder="Doctor name">
+                    </div>
+                    <div class="form-group">
+                        <label>Type:</label>
+                        <select id="entryType">
+                            <option value="checkup">Routine Checkup</option>
+                            <option value="emergency">Emergency Visit</option>
+                            <option value="followup">Follow-up</option>
+                            <option value="surgery">Surgery</option>
+                            <option value="lab">Lab Results</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Notes:</label>
+                        <input type="text" id="newNotes" placeholder="Medical notes and observations">
+                    </div>
+                    <div class="form-group">
+                        <label>Prescription:</label>
+                        <input type="text" id="newPrescription" placeholder="Medications prescribed">
+                    </div>
+                </div>
+                <button class="add-entry-btn" onclick="addNewAppointment()">📅 Add New Appointment</button>
+            </div>
+            
+            <h3>📋 Medical History</h3>
+            <div id="historyCards" class="history-cards"></div>
+            <div style="margin-top: 15px;">
+                <button class="btn btn-primary" onclick="sendBack()">📤 Send Back to Patient</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+        const HOSPITAL_SECRET_TOKEN = 'MEDIGUARD_HOSPITAL_SCANNER_2024';
+        
+        // Hospital QR Scanner function
+        async function scanQR() {
+            const qrInput = document.getElementById('qrInput');
+            const qrData = qrInput.value.trim();
+            const resultDiv = document.getElementById('scanResult');
+            
+            if (!qrData) {
+                alert('Please enter QR code data');
+                qrInput.focus();
+                return;
+            }
+            
+            resultDiv.innerHTML = '<p style="color: #007bff;">🔍 Processing QR code...</p>';
+            
+            try {
+                const response = await fetch('/api/scan-qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        qrData: qrData,
+                        secretToken: HOSPITAL_SECRET_TOKEN
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Valid EHR QR code detected
+                    resultDiv.innerHTML = `
+                        <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; color: #155724;">
+                            <h4>✅ Valid EHR QR Code Detected</h4>
+                            <p><strong>Patient:</strong> ${result.patientData.name}</p>
+                            <p><strong>ID:</strong> ${result.patientData.userId}</p>
+                            <p><strong>Wallet:</strong> ${result.patientData.walletAddress}</p>
+                            <button class="btn btn-success" onclick="triggerOTP('${result.patientData.walletAddress}')" style="margin-top: 10px;">🔐 Generate OTP for Access</button>
+                        </div>
+                    `;
+                    
+                    // Clear input
+                    qrInput.value = '';
+                    
+                } else {
+                    // Invalid or regular QR code
+                    resultDiv.innerHTML = `
+                        <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px; padding: 15px; color: #721c24;">
+                            <h4>❌ QR Code Rejected</h4>
+                            <p>${result.error}</p>
+                            <p><strong>Scanned Data:</strong> ${result.data || qrData}</p>
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('QR scan error:', error);
+                resultDiv.innerHTML = `
+                    <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px; padding: 15px; color: #721c24;">
+                        <h4>❌ Scan Error</h4>
+                        <p>Failed to process QR code: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Trigger OTP generation
+        async function triggerOTP(patientWallet) {
+            try {
+                const response = await fetch('/api/generate-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ patientWallet })
+                });
+                
+                const result = await response.json();
+                console.log('OTP trigger result:', result);
+                
+                if (result.success) {
+                    showNotification(`✅ OTP ${result.otp} sent to patient!`);
+                    console.log(`🔐 Generated OTP: ${result.otp} for wallet: ${patientWallet}`);
+                } else {
+                    alert('❌ OTP trigger failed: ' + result.error);
+                }
+            } catch (error) {
+                console.error('OTP trigger error:', error);
+                alert('❌ OTP trigger error: ' + error.message);
+            }
+        }
+
+        // Poll for pending scans
+        setInterval(loadPendingScans, 20000);
+
+        let lastScanCount = 0;
+        
+        async function loadPendingScans() {
+            try {
+                const response = await fetch('/api/pending-scans');
+                const data = await response.json();
+                
+                const container = document.getElementById('pendingScans');
+                
+                if (data.scans.length === 0) {
+                    container.innerHTML = '<p>No pending scans...</p>';
+                    lastScanCount = 0;
+                    return;
+                }
+                
+                // Only update if scan count changed to avoid refreshing during typing
+                if (data.scans.length !== lastScanCount) {
+                    container.innerHTML = data.scans.map(scan => `
+                        <div class="scan-item" id="scan-${scan.scanId}">
+                            <h3>📱 ${scan.name}</h3>
+                            <p><strong>Patient ID:</strong> ${scan.userId}</p>
+                            <p><strong>Wallet:</strong> ${scan.walletAddress}</p>
+                            <p><strong>Time:</strong> ${new Date(scan.timestamp).toLocaleString()}</p>
+                            <input type="text" class="otp-input" placeholder="Enter OTP" id="otp-${scan.scanId}" maxlength="6" autocomplete="off">
+                            <button class="btn btn-success" onclick="triggerOTP('${scan.walletAddress}')" style="margin-right: 10px;">🔐 Generate OTP</button>
+                            <button class="btn btn-primary" onclick="verifyOTP('${scan.scanId}', '${scan.walletAddress}')">🔓 Verify & Access</button>
+                        </div>
+                    `).join('');
+                    
+                    lastScanCount = data.scans.length;
+                    
+                    // Focus on first OTP input if available
+                    const firstInput = container.querySelector('.otp-input');
+                    if (firstInput) {
+                        setTimeout(() => firstInput.focus(), 100);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error loading scans:', error);
+            }
+        }
+
+        async function verifyOTP(scanId, walletAddress) {
+            const otpInput = document.getElementById(`otp-${scanId}`);
+            const otp = otpInput.value.trim();
+            
+            if (!otp) {
+                alert('Please enter OTP');
+                otpInput.focus();
+                return;
+            }
+            
+            const button = event.target;
+            button.disabled = true;
+            button.textContent = '🔄 Verifying...';
+            
+            console.log(`🔐 Verifying OTP: ${otp} for wallet: ${walletAddress}`);
+            
+            try {
+                // Get scan data to find session ID
+                const scanResponse = await fetch('/api/pending-scans');
+                const scanData = await scanResponse.json();
+                const scan = scanData.scans.find(s => s.scanId === scanId);
+                
+                if (!scan) {
+                    throw new Error('Scan not found');
+                }
+                
+                const response = await fetch('/api/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        otp: otp,
+                        patientWallet: walletAddress
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentSessionId = data.sessionId;
+                    console.log(`✅ OTP ${otp} VERIFIED for wallet ${walletAddress}`);
+                    console.log('🔓 Decrypted patient data received:', data.patientData);
+                    console.log('🔑 Session ID set to:', currentSessionId);
+                    
+                    const patientData = {
+                        id: scan.userId,
+                        name: scan.name,
+                        age: data.patientData.age || 45,
+                        gender: data.patientData.gender || 'Male',
+                        walletAddress: scan.walletAddress,
+                        bloodType: data.patientData.bloodType,
+                        allergies: data.patientData.allergies,
+                        conditions: data.patientData.conditions,
+                        medications: data.patientData.medications,
+                        fullMedicalHistory: data.patientData.fullMedicalHistory
+                    };
+                    
+                    console.log('📊 Patient data prepared for display:', patientData);
+                    
+                    showPatientData(patientData);
+                    showNotification('✅ Patient data decrypted and accessed successfully');
+                    
+                    // Notify patient that hospital is accessing data
+                    fetch('http://localhost:3003/api/hospital-accessing', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sessionId: scan.scanId,
+                            patientWallet: scan.walletAddress
+                        })
+                    }).catch(() => {});
+                    
+                    // Log transaction to admin
+                    fetch('http://localhost:3001/api/transaction', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            patientId: scan.userId,
+                            hospitalId: 'hospital-001',
+                            accessMethod: 'OTP_VERIFIED',
+                            transaction: {
+                                id: `otp_verified_${Date.now()}`,
+                                type: 'DATA_ACCESSED',
+                                fromWallet: scan.walletAddress,
+                                toWallet: '0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh',
+                                patientId: scan.userId,
+                                timestamp: new Date().toISOString(),
+                                status: 'completed'
+                            }
+                        })
+                    }).catch(() => {});
+                    
+                    const scanElement = document.getElementById(`scan-${scanId}`);
+                    if (scanElement) {
+                        scanElement.remove();
+                    }
+                } else {
+                    alert('❌ ' + data.error);
+                    button.disabled = false;
+                    button.textContent = '🔓 Verify & Access';
+                }
+                
+            } catch (error) {
+                console.error('Error verifying OTP:', error);
+                alert('❌ Network error: ' + error.message);
+                button.disabled = false;
+                button.textContent = '🔓 Verify & Access';
+            }
+        }
+
+        let currentPatientHistory = '';
+        let currentPatientData = null;
+        
+        function showPatientData(patient) {
+            currentPatientData = {
+                id: patient.id,
+                name: patient.name,
+                age: patient.age,
+                gender: patient.gender || 'Male',
+                walletAddress: patient.walletAddress,
+                bloodType: patient.bloodType,
+                allergies: patient.allergies,
+                conditions: patient.conditions,
+                medications: patient.medications,
+                fullMedicalHistory: patient.fullMedicalHistory
+            };
+            document.getElementById('patientSection').classList.remove('hidden');
+            
+            // Display patient basic info with medical overview
+            const medicalInfo = `
+                <div style="background: #e8f5e8; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                    <h3>👤 ${patient.name}</h3>
+                    <p><strong>ID:</strong> ${patient.id}</p>
+                    <p><strong>Wallet:</strong> ${patient.walletAddress}</p>
+                    <p><strong>Access Time:</strong> ${new Date().toLocaleString()}</p>
+                </div>
+                <div style="background: #f0f8ff; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4>📋 Medical Information</h4>
+                        <button class="edit-btn" onclick="toggleMedicalInfoEdit()" id="editMedicalBtn">✏️ Edit</button>
+                    </div>
+                    <div id="medicalInfoView">
+                        <p><strong>Age:</strong> <span id="ageDisplay">${patient.age || 'Not available'}</span></p>
+                        <p><strong>Blood Type:</strong> <span id="bloodTypeDisplay">${patient.bloodType || 'Not available'}</span></p>
+                        <p><strong>Allergies:</strong> <span id="allergiesDisplay">${patient.allergies ? patient.allergies.join(', ') : 'Not available'}</span></p>
+                        <p><strong>Conditions:</strong> <span id="conditionsDisplay">${patient.conditions ? patient.conditions.join(', ') : 'Not available'}</span></p>
+                        <p><strong>Medications:</strong> <span id="medicationsDisplay">${patient.medications ? patient.medications.join(', ') : 'Not available'}</span></p>
+                    </div>
+                    <div id="medicalInfoEdit" class="edit-form hidden">
+                        <label><strong>Age:</strong></label>
+                        <input type="number" id="ageInput" value="${patient.age || ''}" placeholder="Age">
+                        <label><strong>Blood Type:</strong></label>
+                        <input type="text" id="bloodTypeInput" value="${patient.bloodType || ''}" placeholder="e.g., A+, O-, AB+">
+                        <label><strong>Allergies:</strong></label>
+                        <input type="text" id="allergiesInput" value="${patient.allergies ? patient.allergies.join(', ') : ''}" placeholder="Comma-separated list">
+                        <label><strong>Conditions:</strong></label>
+                        <input type="text" id="conditionsInput" value="${patient.conditions ? patient.conditions.join(', ') : ''}" placeholder="Comma-separated list">
+                        <label><strong>Medications:</strong></label>
+                        <input type="text" id="medicationsInput" value="${patient.medications ? patient.medications.join(', ') : ''}" placeholder="Comma-separated list">
+                        <button class="save-btn" onclick="saveMedicalInfo()">💾 Save</button>
+                        <button class="cancel-btn" onclick="cancelMedicalInfoEdit()">❌ Cancel</button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('patientInfo').innerHTML = medicalInfo;
+            
+            // Convert patient data to history format with full medical records
+            let historyText = '';
+            if (patient.fullMedicalHistory && patient.fullMedicalHistory.records && patient.fullMedicalHistory.records.length > 0) {
+                historyText = patient.fullMedicalHistory.records.map(record => 
+                    `Date: ${record.date}\nHospital: ${record.hospital || 'Unknown Hospital'}\nDoctor: ${record.doctor || 'Dr. Unknown'}\nNotes: ${record.notes || 'No notes available'}\nPrescription: ${record.prescription || 'N/A'}\n`
+                ).join('\n');
+                console.log('📋 Full medical history loaded:', patient.fullMedicalHistory.records.length, 'records');
+                console.log('📋 Complete history data:', patient.fullMedicalHistory.records);
+            } else {
+                // Fallback data if no history available
+                historyText = `Date: 2024-01-15\nHospital: City General Hospital\nDoctor: Dr. Davis\nNotes: Routine diabetes checkup - Blood sugar levels stable\nPrescription: Continue Metformin\n\nDate: 2024-02-20\nHospital: Metro Medical Center\nDoctor: Dr. Emergency\nNotes: Emergency visit - Allergic reaction to shellfish, treated with antihistamines\nPrescription: EpiPen prescribed, avoid shellfish completely\n\nDate: 2024-03-10\nHospital: Downtown Clinic\nDoctor: Dr. Martinez\nNotes: Follow-up appointment - Adjusted Metformin dosage to 750mg twice daily\nPrescription: Metformin 750mg twice daily, dietary counseling\n\nDate: 2024-04-05\nHospital: City General Hospital\nDoctor: Dr. Davis\nNotes: Blood work - HbA1c levels improved to 6.8%, continue current treatment\nPrescription: Metformin 750mg twice daily\n`;
+                console.log('⚠️ Using fallback medical history with complete records');
+            }
+            
+            currentPatientHistory = historyText;
+            parseAndDisplayHistory(currentPatientHistory);
+        }
+        
+        function parseAndDisplayHistory(historyText) {
+            const cards = document.getElementById('historyCards');
+            const records = [];
+            const lines = historyText.split('\n');
+            let currentRecord = null;
+            
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('Date: ')) {
+                    if (currentRecord) records.push(currentRecord);
+                    currentRecord = { date: line.replace('Date: ', '') };
+                } else if (line.startsWith('Hospital: ') && currentRecord) {
+                    currentRecord.hospital = line.replace('Hospital: ', '');
+                } else if (line.startsWith('Doctor: ') && currentRecord) {
+                    currentRecord.doctor = line.replace('Doctor: ', '');
+                } else if (line.startsWith('Notes: ') && currentRecord) {
+                    currentRecord.notes = line.replace('Notes: ', '');
+                } else if (line.startsWith('Prescription: ') && currentRecord) {
+                    currentRecord.prescription = line.replace('Prescription: ', '');
+                }
+            }
+            if (currentRecord) records.push(currentRecord);
+            
+            cards.innerHTML = records.map((record, index) => `
+                <div class="history-card" id="card-${index}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="date">📅 ${record.date}</span>
+                        <button class="edit-btn" onclick="editRecord(${index})" title="Edit this record">✏️ Edit</button>
+                    </div>
+                    <div id="view-${index}">
+                        <h4 class="hospital">🏥 ${record.hospital || 'Unknown Hospital'}</h4>
+                        <p class="doctor">👨⚕️ ${record.doctor || 'Unknown Doctor'}</p>
+                        <p><strong>Notes:</strong> ${record.notes || 'No notes'}</p>
+                        <p><strong>Prescription:</strong> ${record.prescription || 'None'}</p>
+                    </div>
+                    <div id="edit-${index}" class="edit-form hidden">
+                        <input type="date" id="date-${index}" value="${record.date}">
+                        <input type="text" id="hospital-${index}" value="${record.hospital || ''}" placeholder="Hospital">
+                        <input type="text" id="doctor-${index}" value="${record.doctor || ''}" placeholder="Doctor">
+                        <input type="text" id="notes-${index}" value="${record.notes || ''}" placeholder="Notes">
+                        <input type="text" id="prescription-${index}" value="${record.prescription || ''}" placeholder="Prescription">
+                        <button class="save-btn" onclick="saveRecord(${index})">💾 Save</button>
+                        <button class="cancel-btn" onclick="cancelEdit(${index})">❌ Cancel</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function editRecord(index) {
+            document.getElementById(`view-${index}`).classList.add('hidden');
+            document.getElementById(`edit-${index}`).classList.remove('hidden');
+        }
+        
+        function cancelEdit(index) {
+            document.getElementById(`view-${index}`).classList.remove('hidden');
+            document.getElementById(`edit-${index}`).classList.add('hidden');
+        }
+        
+        function saveRecord(index) {
+            const date = document.getElementById(`date-${index}`).value;
+            const hospital = document.getElementById(`hospital-${index}`).value;
+            const doctor = document.getElementById(`doctor-${index}`).value;
+            const notes = document.getElementById(`notes-${index}`).value;
+            const prescription = document.getElementById(`prescription-${index}`).value;
+            
+            // Update the history text
+            const lines = currentPatientHistory.split('\n');
+            let recordCount = 0;
+            let startLine = -1;
+            let endLine = -1;
+            
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].startsWith('Date: ')) {
+                    if (recordCount === index) {
+                        startLine = i;
+                    } else if (recordCount === index + 1) {
+                        endLine = i;
+                        break;
+                    }
+                    recordCount++;
+                }
+            }
+            
+            if (startLine !== -1) {
+                if (endLine === -1) endLine = lines.length;
+                
+                const newRecord = [
+                    `Date: ${date}`,
+                    `Hospital: ${hospital}`,
+                    `Doctor: ${doctor}`,
+                    `Notes: ${notes}`,
+                    `Prescription: ${prescription}`,
+                    ''
+                ];
+                
+                lines.splice(startLine, endLine - startLine, ...newRecord);
+                currentPatientHistory = lines.join('\n');
+                
+                // Update the display
+                parseAndDisplayHistory(currentPatientHistory);
+                
+                // Auto-save the changes
+                autoSaveHistory();
+                
+                // Notify admin of medical record editing
+                fetch('http://localhost:3001/api/transaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        patientId: 'current-patient',
+                        hospitalId: 'hospital-001',
+                        accessMethod: 'MEDICAL_RECORD_EDITED',
+                        transaction: {
+                            id: `record_edited_${Date.now()}`,
+                            type: 'MEDICAL_RECORD_EDITED',
+                            fromWallet: '0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh',
+                            toWallet: 'patient-wallet',
+                            patientId: 'current-patient',
+                            timestamp: new Date().toISOString(),
+                            status: 'completed',
+                            details: `Hospital edited medical record #${index + 1}`
+                        }
+                    })
+                }).catch(() => {});
+                
+                showNotification('✅ Record updated successfully');
+            }
+        }
+
+        function addNewAppointment() {
+            const date = document.getElementById('newDate').value;
+            const hospital = document.getElementById('newHospital').value;
+            const doctor = document.getElementById('newDoctor').value;
+            const notes = document.getElementById('newNotes').value;
+            const prescription = document.getElementById('newPrescription').value;
+            
+            if (!date || !hospital || !doctor) {
+                alert('Please fill in Date, Hospital, and Doctor fields');
+                return;
+            }
+            
+            // Add new appointment to history
+            const newAppointment = `\n\nDate: ${date}\nHospital: ${hospital}\nDoctor: ${doctor}\nNotes: ${notes || 'No notes'}\nPrescription: ${prescription || 'None'}`;
+            
+            currentPatientHistory += newAppointment;
+            
+            // Send NEW_APPOINTMENT notification to admin
+            fetch('http://localhost:3001/api/transaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    patientId: currentSessionId ? 'current-patient' : 'unknown',
+                    hospitalId: 'hospital-001',
+                    accessMethod: 'NEW_APPOINTMENT',
+                    transaction: {
+                        id: `new_appointment_${Date.now()}`,
+                        type: 'NEW_APPOINTMENT',
+                        fromWallet: '0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh',
+                        toWallet: 'patient-wallet',
+                        patientId: 'current-patient',
+                        timestamp: new Date().toISOString(),
+                        status: 'scheduled',
+                        details: `New appointment: ${date} at ${hospital} with ${doctor}`
+                    }
+                })
+            }).catch(() => {});
+            
+            // Clear form
+            document.getElementById('newDate').value = '';
+            document.getElementById('newHospital').value = '';
+            document.getElementById('newDoctor').value = '';
+            document.getElementById('newNotes').value = '';
+            document.getElementById('newPrescription').value = '';
+            
+            // Update display
+            parseAndDisplayHistory(currentPatientHistory);
+            
+            // Auto-save
+            autoSaveHistory();
+            
+            showNotification('✅ New appointment added successfully');
+        }
+
+        async function updateHistory() {
+            if (!currentSessionId) {
+                console.error('No session ID available for update');
+                return;
+            }
+            
+            console.log('Updating history with session ID:', currentSessionId);
+            
+            try {
+                const response = await fetch('/api/update-history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: currentSessionId, history: currentPatientHistory })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('💾 History updated successfully');
+                } else {
+                    console.error('Update failed:', data.error);
+                    alert('❌ Update failed: ' + data.error);
+                }
+                
+            } catch (error) {
+                console.error('Error updating history:', error);
+                alert('❌ Update failed: ' + error.message);
+            }
+        }
+        
+        // Auto-save when records are updated
+        function autoSaveHistory() {
+            if (currentSessionId && currentPatientHistory) {
+                updateHistory();
+            }
+        }
+
+        async function sendBack() {
+            if (!currentSessionId) {
+                console.error('No session ID available for send back');
+                alert('❌ No active session to send back');
+                return;
+            }
+            
+            console.log('Sending back with session ID:', currentSessionId);
+            console.log('Current patient data:', currentPatientData);
+            
+            // Parse medical history into structured format
+            const records = [];
+            const lines = currentPatientHistory.split('\n');
+            let currentRecord = null;
+            
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('Date: ')) {
+                    if (currentRecord) records.push(currentRecord);
+                    currentRecord = { date: line.replace('Date: ', '') };
+                } else if (line.startsWith('Hospital: ') && currentRecord) {
+                    currentRecord.hospital = line.replace('Hospital: ', '');
+                } else if (line.startsWith('Doctor: ') && currentRecord) {
+                    currentRecord.doctor = line.replace('Doctor: ', '');
+                } else if (line.startsWith('Notes: ') && currentRecord) {
+                    currentRecord.notes = line.replace('Notes: ', '');
+                } else if (line.startsWith('Prescription: ') && currentRecord) {
+                    currentRecord.prescription = line.replace('Prescription: ', '');
+                }
+            }
+            if (currentRecord) records.push(currentRecord);
+            
+            const updatedData = {
+                id: currentPatientData.id,
+                name: currentPatientData.name,
+                age: currentPatientData.age,
+                gender: currentPatientData.gender,
+                bloodType: currentPatientData.bloodType,
+                allergies: currentPatientData.allergies,
+                conditions: currentPatientData.conditions,
+                medications: currentPatientData.medications,
+                fullMedicalHistory: {
+                    records: records,
+                    lastUpdated: new Date().toISOString().split('T')[0]
+                }
+            };
+            
+            console.log('Sending updated data:', updatedData);
+            
+            try {
+                const response = await fetch('/api/send-back', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        sessionId: currentSessionId,
+                        updatedData: updatedData
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('📤 Data sent back to patient');
+                    document.getElementById('patientSection').classList.add('hidden');
+                    currentSessionId = null;
+                } else {
+                    console.error('Send back failed:', data.error);
+                    alert('❌ Send back failed: ' + data.error);
+                }
+                
+            } catch (error) {
+                console.error('Error sending back:', error);
+                alert('❌ Send back failed: ' + error.message);
+            }
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
+        }
+
+        // Medical info editing functions
+        function toggleMedicalInfoEdit() {
+            document.getElementById('medicalInfoView').classList.add('hidden');
+            document.getElementById('medicalInfoEdit').classList.remove('hidden');
+            document.getElementById('editMedicalBtn').style.display = 'none';
+        }
+
+        function cancelMedicalInfoEdit() {
+            document.getElementById('medicalInfoView').classList.remove('hidden');
+            document.getElementById('medicalInfoEdit').classList.add('hidden');
+            document.getElementById('editMedicalBtn').style.display = 'inline-block';
+        }
+
+        async function saveMedicalInfo() {
+            const age = document.getElementById('ageInput').value.trim();
+            const bloodType = document.getElementById('bloodTypeInput').value.trim();
+            const allergies = document.getElementById('allergiesInput').value.trim();
+            const conditions = document.getElementById('conditionsInput').value.trim();
+            const medications = document.getElementById('medicationsInput').value.trim();
+
+            console.log('💾 Saving medical info:', { age, bloodType, allergies, conditions, medications });
+
+            // Update display
+            document.getElementById('ageDisplay').textContent = age || 'Not available';
+            document.getElementById('bloodTypeDisplay').textContent = bloodType || 'Not available';
+            document.getElementById('allergiesDisplay').textContent = allergies || 'Not available';
+            document.getElementById('conditionsDisplay').textContent = conditions || 'Not available';
+            document.getElementById('medicationsDisplay').textContent = medications || 'Not available';
+
+            // Update current patient data
+            if (currentPatientData) {
+                currentPatientData.age = parseInt(age) || age;
+                currentPatientData.bloodType = bloodType;
+                currentPatientData.allergies = allergies ? allergies.split(',').map(a => a.trim()) : [];
+                currentPatientData.conditions = conditions ? conditions.split(',').map(c => c.trim()) : [];
+                currentPatientData.medications = medications ? medications.split(',').map(m => m.trim()) : [];
+                console.log('✅ Updated currentPatientData:', currentPatientData);
+            }
+
+            // Save to backend
+            if (currentSessionId) {
+                try {
+                    const response = await fetch('/api/update-history', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            sessionId: currentSessionId,
+                            age: age,
+                            bloodType: bloodType,
+                            allergies: allergies ? allergies.split(',').map(a => a.trim()) : [],
+                            conditions: conditions ? conditions.split(',').map(c => c.trim()) : [],
+                            medications: medications ? medications.split(',').map(m => m.trim()) : []
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        showNotification('✅ Medical information updated successfully');
+                    } else {
+                        console.error('Update failed:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Error updating medical info:', error);
+                }
+            }
+
+            // Log transaction to admin
+            fetch('http://localhost:3001/api/transaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    patientId: currentPatientData ? currentPatientData.id : 'unknown',
+                    hospitalId: 'hospital-001',
+                    accessMethod: 'MEDICAL_INFO_UPDATED',
+                    transaction: {
+                        id: `medical_info_updated_${Date.now()}`,
+                        type: 'MEDICAL_INFO_UPDATED',
+                        fromWallet: '0xFABa8f7e6d5c4b3a2918f7e6d5c4b3a291a8f7eh',
+                        toWallet: currentPatientData ? currentPatientData.walletAddress : 'unknown',
+                        patientId: currentPatientData ? currentPatientData.id : 'unknown',
+                        timestamp: new Date().toISOString(),
+                        status: 'completed',
+                        details: `Hospital updated patient medical information (Age: ${age}, Blood Type: ${bloodType})`
+                    }
+                })
+            }).catch(() => {});
+
+            cancelMedicalInfoEdit();
+        }
+
+        // Allow Enter key to trigger scan
+        document.addEventListener('DOMContentLoaded', function() {
+            const qrInput = document.getElementById('qrInput');
+            if (qrInput) {
+                qrInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        scanQR();
+                    }
+                });
+                // Focus on QR input when page loads
+                qrInput.focus();
+            }
+        });
+        
+        // Load initial data
+        loadPendingScans();
+    </script>
+</body>
+</html>

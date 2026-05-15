@@ -1,0 +1,39 @@
+{
+  "pharmacy-001": [
+    {
+      "id": "med-001",
+      "medication": "Amoxicillin",
+      "description": "Antibiotic used to treat bacterial infections",
+      "quantity": 150,
+      "unit": "Tablets"
+    },
+    {
+      "id": "med-002",
+      "medication": "Metformin",
+      "description": "Oral medication for type 2 diabetes management",
+      "quantity": 103,
+      "unit": "Tablets"
+    },
+    {
+      "id": "med-003",
+      "medication": "Ibuprofen",
+      "description": "Nonsteroidal anti-inflammatory drug for pain relief",
+      "quantity": 0,
+      "unit": "Tablets"
+    },
+    {
+      "id": "med-004",
+      "medication": "Paracetamol",
+      "description": "Pain reliever and fever reducer",
+      "quantity": 310,
+      "unit": "Tablets"
+    },
+    {
+      "id": "med-005",
+      "medication": "Aspirin",
+      "description": "Used to reduce pain, fever, or inflammation",
+      "quantity": 30,
+      "unit": "Tablets"
+    }
+  ]
+}

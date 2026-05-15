@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Patient Portal</title>
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f0f8ff; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #218838; }
+        .patient-card { border: 2px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; cursor: pointer; }
+        .patient-card:hover { border-color: #28a745; }
+        .patient-card.selected { border-color: #28a745; background: #f8fff8; }
+        .qr-section { text-align: center; margin: 20px 0; }
+        .qr-code { max-width: 300px; margin: 20px auto; }
+        .hidden { display: none; }
+        .face-id { color: #007bff; }
+        .otp-only { color: #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>👤 Patient Portal</h1>
+            <p>Generate your secure QR code for hospital visits</p>
+        </div>
+
+        <div class="card">
+            <h3>Select Your Profile</h3>
+            <div id="patient-list"></div>
+            <button onclick="generateQR()" id="generate-btn" disabled>Generate My QR Code</button>
+        </div>
+
+        <div id="qr-section" class="card hidden">
+            <h3>Your Secure QR Code</h3>
+            <div class="qr-section">
+                <img id="qr-image" class="qr-code" alt="QR Code">
+                <p><strong id="patient-name"></strong></p>
+                <p id="auth-method"></p>
+                <p style="font-size: 12px; color: #666;">Show this QR code to hospital staff</p>
+            </div>
+            <button onclick="resetPortal()">Generate New QR</button>
+        </div>
+
+        <div class="card">
+            <h3>📋 My Medical History</h3>
+            <button onclick="viewMedicalHistory()" style="background: #007bff;">View Medical History</button>
+            <div id="medical-history" class="hidden" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; white-space: pre-line; font-family: monospace; font-size: 12px;"></div>
+        </div>
+
+        <div class="card">
+            <h3>📋 Instructions</h3>
+            <ol>
+                <li>Select your profile above</li>
+                <li>Click "Generate My QR Code"</li>
+                <li>Show QR code to hospital staff</li>
+                <li>Complete authentication (Face ID or OTP)</li>
+                <li>Hospital can access your medical data</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        let selectedPatient = null;
+
+        async function loadPatients() {
+            try {
+                const response = await fetch('/api/patients');
+                const patients = await response.json();
+                
+                document.getElementById('patient-list').innerHTML = patients.map(patient => `
+                    <div class="patient-card" onclick="selectPatient('${patient.id}')">
+                        <h4>${patient.name}</h4>
+                        <p>Phone: ${patient.phone}</p>
+                        <p class="${patient.faceIdEnabled ? 'face-id' : 'otp-only'}">
+                            ${patient.faceIdEnabled ? '🔒 Face ID Enabled' : '📱 OTP Only'}
+                        </p>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load patients:', error);
+            }
+        }
+
+        function selectPatient(patientId) {
+            selectedPatient = patientId;
+            
+            // Update UI
+            document.querySelectorAll('.patient-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.target.closest('.patient-card').classList.add('selected');
+            
+            document.getElementById('generate-btn').disabled = false;
+        }
+
+        async function generateQR() {
+            if (!selectedPatient) return;
+            
+            try {
+                const response = await fetch('/api/generate-qr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ patientId: selectedPatient })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('qr-image').src = result.qrImage;
+                    document.getElementById('patient-name').textContent = result.patient.name;
+                    document.getElementById('auth-method').innerHTML = result.patient.faceIdEnabled ? 
+                        '<span class="face-id">🔒 Face ID + OTP Available</span>' : 
+                        '<span class="otp-only">📱 OTP Authentication Only</span>';
+                    
+                    document.getElementById('qr-section').classList.remove('hidden');
+                    
+                    // Copy QR data to clipboard for testing
+                    navigator.clipboard.writeText(result.qrData).then(() => {
+                        console.log('QR data copied to clipboard for testing');
+                    });
+                } else {
+                    alert('Failed to generate QR code');
+                }
+            } catch (error) {
+                alert('Failed to generate QR code');
+            }
+        }
+
+        function resetPortal() {
+            document.getElementById('qr-section').classList.add('hidden');
+            document.querySelectorAll('.patient-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.getElementById('generate-btn').disabled = true;
+            selectedPatient = null;
+        }
+
+        async function viewMedicalHistory() {
+            const token = localStorage.getItem('patientToken');
+            if (!token) {
+                alert('Please login first');
+                window.location.href = '/login.html';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/medical-history', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('medical-history').textContent = result.history;
+                    document.getElementById('medical-history').classList.remove('hidden');
+                } else {
+                    alert('Failed to load medical history');
+                }
+            } catch (error) {
+                alert('Failed to load medical history');
+            }
+        }
+
+        // Load patients on page load
+        loadPatients();
+        
+        // Check for updates every 10 seconds
+        setInterval(checkForUpdates, 10000);
+        
+        let lastModified = null;
+        
+        async function checkForUpdates() {
+            const token = localStorage.getItem('patientToken');
+            if (!token) return;
+            
+            try {
+                const response = await fetch('/api/check-updates', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success && data.hasUpdates) {
+                    const newModified = new Date(data.lastModified).getTime();
+                    if (lastModified && newModified > lastModified) {
+                        showUpdateNotification();
+                        // Auto-refresh medical history if it's visible
+                        if (!document.getElementById('medical-history').classList.contains('hidden')) {
+                            viewMedicalHistory();
+                        }
+                    }
+                    lastModified = newModified;
+                }
+            } catch (error) {
+                console.log('Update check failed:', error);
+            }
+        }
+        
+        function showUpdateNotification() {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed; top: 20px; right: 20px; 
+                background: #28a745; color: white; 
+                padding: 15px; border-radius: 5px; 
+                z-index: 1000; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            `;
+            notification.innerHTML = '🔄 Medical history updated by hospital';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    document.body.removeChild(notification);
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

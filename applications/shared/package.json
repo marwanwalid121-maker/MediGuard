@@ -1,0 +1,20 @@
+{
+  "name": "healthcare-qr-system",
+  "version": "1.0.0",
+  "scripts": {
+    "start:admin": "cd ../admin-dashboard && node server.js",
+    "start:hospital": "cd ../hospital-portal && node server.js",
+    "start:patient": "cd ../patient-portal && node server.js",
+    "start:all": "concurrently \"npm run start:admin\" \"npm run start:hospital\" \"npm run start:patient\""
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "concurrently": "^7.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "fabric-ca-client": "^2.2.20",
+    "fabric-network": "^2.2.20",
+    "jsonwebtoken": "^9.0.2",
+    "qrcode": "^1.5.3"
+  }
+}

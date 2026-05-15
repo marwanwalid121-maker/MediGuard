@@ -1,0 +1,38 @@
+{
+  "name": "mediguard",
+  "version": "1.0.0",
+  "description": "Secure Medical Records Management System with Blockchain",
+  "main": "start.js",
+  "scripts": {
+    "start": "concurrently \"npm run admin\" \"npm run hospital\" \"npm run patient\"",
+    "admin": "cd applications/admin-dashboard && node server.js",
+    "hospital": "cd applications/hospital-dashboard && node server.js",
+    "patient": "cd applications/patient-portal && node server.js",
+    "install-all": "cd applications/shared && npm install",
+    "init-blockchain": "node init-blockchain.js",
+    "explore-blockchain": "node explore-blockchain.js",
+    "migrate": "node migrate-to-blockchain.js",
+    "verify": "node verify-blockchain.js"
+  },
+  "keywords": [
+    "healthcare",
+    "blockchain",
+    "medical-records",
+    "security",
+    "encryption"
+  ],
+  "author": "MediGuard Team",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "concurrently": "^7.6.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "fabric-ca-client": "^2.2.20",
+    "fabric-network": "^2.2.20",
+    "jsonwebtoken": "^9.0.3",
+    "localtunnel": "^2.0.2",
+    "qrcode": "^1.5.4"
+  }
+}

@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hospital Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="QR Scanner">
+    <style>
+        body { font-family: Arial; margin: 10px; background: #f8f9fa; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .card { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; margin: 5px; font-size: 16px; }
+        button:hover { background: #0056b3; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
+        .patient-data { background: #e8f5e8; padding: 15px; border-radius: 4px; margin: 10px 0; }
+        .hidden { display: none; }
+        .error { color: red; margin: 10px 0; }
+        .success { color: green; margin: 10px 0; }
+        
+        /* Mobile Camera Styles */
+        #camera-section { text-align: center; margin: 20px 0; }
+        #video { width: 100%; max-width: 400px; height: 300px; border: 2px solid #007bff; border-radius: 8px; }
+        #canvas { display: none; }
+        .camera-controls { margin: 15px 0; }
+        .camera-btn { background: #28a745; padding: 15px 25px; font-size: 18px; border-radius: 8px; }
+        .stop-btn { background: #dc3545; }
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            body { margin: 5px; }
+            .card { padding: 10px; }
+            button { padding: 15px 20px; font-size: 18px; }
+            input { padding: 15px; font-size: 18px; }
+            #video { height: 250px; }
+        }
+        
+        /* Pulse animation for manual input */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🏥 MediGuard QR Scanner</h1>
+            
+            <!-- Real-time Status Display -->
+            <div id="scan-status-display" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 10px 0; border: 2px solid #dee2e6;">
+                <h3>📊 Scan Status</h3>
+                <div id="status-message" style="font-size: 18px; font-weight: bold; color: #6c757d;">
+                    ⏳ Waiting for QR scan...
+                </div>
+                <div id="status-details" style="margin-top: 10px; font-size: 14px; color: #6c757d;">
+                    Ready to scan patient QR codes
+                </div>
+            </div>
+            
+            <div id="scan-section">
+                <h3>📱 Scan Patient QR Code</h3>
+                
+                <!-- iPhone Camera Scanner -->
+                <div id="camera-section">
+                    <video id="video" autoplay playsinline></video>
+                    <canvas id="canvas"></canvas>
+                    <div class="camera-controls">
+                        <button id="start-camera" class="camera-btn" onclick="startCamera()">📷 Start iPhone Camera</button>
+                        <button id="stop-camera" class="camera-btn stop-btn hidden" onclick="stopCamera()">⏹️ Stop Camera</button>
+                    </div>
+                    <div id="scan-status"></div>
+                </div>
+                
+            </div>
+
+            <div id="auth-section" class="hidden">
+                <h3>Patient Authentication</h3>
+                <p>Patient: <strong id="patient-name"></strong></p>
+                <div id="auth-methods"></div>
+                <div id="error-msg" class="error"></div>
+            </div>
+
+            <div id="data-section" class="hidden">
+                <h3>Patient Medical History</h3>
+                <div id="patient-info" style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 10px 0;"></div>
+                <div id="patient-data" class="patient-data"></div>
+                <div style="margin: 15px 0;">
+                    <button onclick="editHistory()" style="background: #ffc107; color: black;">Edit History</button>
+                    <button onclick="sendBack()" style="background: #dc3545;">Send Back to Patient</button>
+                </div>
+                <div id="edit-section" class="hidden">
+                    <h4>Edit Medical History</h4>
+                    
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 10px 0;">
+                        <h5>Medical Information</h5>
+                        <input type="text" id="edit-bloodtype" placeholder="Blood Type" style="width: 100%; margin: 5px 0; padding: 8px;">
+                        <input type="text" id="edit-allergies" placeholder="Allergies" style="width: 100%; margin: 5px 0; padding: 8px;">
+                        <input type="text" id="edit-conditions" placeholder="Conditions" style="width: 100%; margin: 5px 0; padding: 8px;">
+                        <input type="text" id="edit-medications" placeholder="Medications" style="width: 100%; margin: 5px 0; padding: 8px;">
+                    </div>
+                    
+                    <div style="background: #e8f5e8; padding: 15px; border-radius: 4px; margin: 10px 0;">
+                        <h5>Add New Visit</h5>
+                        <input type="text" id="new-hospital" placeholder="Hospital Name" style="width: 100%; margin: 5px 0; padding: 8px;">
+                        <input type="date" id="new-date" style="width: 100%; margin: 5px 0; padding: 8px;">
+                        <input type="text" id="new-doctor" placeholder="Doctor Name" style="width: 100%; margin: 5px 0; padding: 8px;">
+                        <textarea id="new-notes" placeholder="Notes" rows="3" style="width: 100%; margin: 5px 0; padding: 8px;"></textarea>
+                        <textarea id="new-prescription" placeholder="Prescription" rows="2" style="width: 100%; margin: 5px 0; padding: 8px;"></textarea>
+                        <button onclick="addVisit(event)" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Add Visit</button>
+                    </div>
+                    
+                    <div id="visits-editor"></div>
+                    
+                    <button onclick="saveHistory()" style="background: #28a745;">Save All Changes</button>
+                </div>
+                <button onclick="resetScanner()">Scan Another Patient</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Scanner Library -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    
+    <script>
+        let currentPatient = null;
+        let videoStream = null;
+        let scanningActive = false;
+
+        // iPhone Camera QR Scanner
+        async function startCamera() {
+            try {
+                // Check if camera API is supported
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Camera API not supported in this browser');
+                }
+                
+                // Request camera permission explicitly
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                };
+                
+                // Try to get user media
+                videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                const video = document.getElementById('video');
+                video.srcObject = videoStream;
+                
+                document.getElementById('start-camera').classList.add('hidden');
+                document.getElementById('stop-camera').classList.remove('hidden');
+                
+                // Start continuous scanning
+                scanningActive = true;
+                scanQRFromVideo();
+                
+                document.getElementById('scan-status').innerHTML = '<p style="color: green;">📷 Camera active - Point at QR code</p>';
+            } catch (error) {
+                console.error('Camera error:', error);
+                let errorMsg = '❌ Camera not available. ';
+                
+                if (error.message.includes('not supported')) {
+                    errorMsg += 'This browser doesn\'t support camera access.';
+                } else if (error.name === 'NotAllowedError') {
+                    errorMsg += 'Camera permission denied.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg += 'No camera found on device.';
+                } else {
+                    errorMsg += 'Camera access failed.';
+                }
+                
+                errorMsg += '<br><strong>✅ Use manual input below instead!</strong>';
+                
+                document.getElementById('scan-status').innerHTML = `<div style="color: #856404; background: #fff3cd; padding: 15px; border-radius: 4px; border: 2px solid #ffc107;">${errorMsg}</div>`;
+                
+                // Hide camera controls
+                document.getElementById('start-camera').style.display = 'none';
+                document.getElementById('stop-camera').style.display = 'none';
+                
+                // Highlight manual input
+                const manualSection = document.querySelector('div[style*="background: #f8f9fa"]');
+                if (manualSection) {
+                    manualSection.style.background = '#d1ecf1';
+                    manualSection.style.border = '3px solid #17a2b8';
+                    manualSection.style.animation = 'pulse 2s infinite';
+                }
+            }
+        }
+        
+        function stopCamera() {
+            scanningActive = false;
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            
+            document.getElementById('start-camera').classList.remove('hidden');
+            document.getElementById('stop-camera').classList.add('hidden');
+            document.getElementById('scan-status').innerHTML = '';
+        }
+        
+        function scanQRFromVideo() {
+            if (!scanningActive) return;
+            
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    document.getElementById('scan-status').innerHTML = '<p style="color: green;">✅ QR detected, validating...</p>';
+                    // Create a hidden input to store QR data for processing
+                    let hiddenInput = document.getElementById('qr-input');
+                    if (!hiddenInput) {
+                        hiddenInput = document.createElement('input');
+                        hiddenInput.id = 'qr-input';
+                        hiddenInput.type = 'hidden';
+                        document.body.appendChild(hiddenInput);
+                    }
+                    hiddenInput.value = code.data;
+                    stopCamera();
+                    scanQR();
+                    return;
+                }
+            }
+            
+            requestAnimationFrame(scanQRFromVideo);
+        }
+        
+        function captureQR() {
+            // Force a single capture attempt
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            
+            if (code) {
+                // Create a hidden input to store QR data for processing
+                let hiddenInput = document.getElementById('qr-input');
+                if (!hiddenInput) {
+                    hiddenInput = document.createElement('input');
+                    hiddenInput.id = 'qr-input';
+                    hiddenInput.type = 'hidden';
+                    document.body.appendChild(hiddenInput);
+                }
+                hiddenInput.value = code.data;
+                stopCamera();
+                scanQR();
+            } else {
+                document.getElementById('scan-status').innerHTML = '<p style="color: orange;">⚠️ No QR code found. Try again or adjust position.</p>';
+            }
+        }
+
+        function scanQR() {
+            const qrInput = document.getElementById('qr-input');
+            const qrData = qrInput ? qrInput.value.trim() : '';
+            if (!qrData) return;
+
+            console.log('🔍 FRONTEND: Starting QR scan process');
+            console.log('🔍 FRONTEND: QR Data:', qrData);
+            console.log('🔍 FRONTEND: Contains ?s=:', qrData.includes('?s='));
+            console.log('🔍 FRONTEND: Contains ?u=:', qrData.includes('?u='));
+
+            // Update status immediately
+            updateScanStatus('🔍 Processing QR...', 'Validating QR code format', '#fff3cd', '#856404');
+
+            // Send debug info to server
+            fetch('/api/debug-log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: 'QR Data Received',
+                    data: {
+                        length: qrData.length,
+                        first50: qrData.substring(0, 50),
+                        containsS: qrData.includes('?s='),
+                        containsU: qrData.includes('?u='),
+                        startsWithEHR: qrData.startsWith('EHR_'),
+                        fullQR: qrData
+                    }
+                })
+            });
+            
+            // Call scan endpoint
+            console.log('🔍 FRONTEND: Calling /api/scan endpoint');
+            fetch('/api/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qrData })
+            })
+            .then(response => {
+                console.log('🔍 FRONTEND: Got response status:', response.status);
+                return response.json();
+            })
+            .then(result => {
+                console.log('🔍 FRONTEND: Got result:', result);
+                if (result && result.success) {
+                    updateScanStatus('✅ QR Accepted!', 'Patient QR code validated successfully', '#d4edda', '#155724');
+                    showError('✅ QR ACCEPTED: ' + result.message);
+                } else {
+                    updateScanStatus('❌ Access Denied!', 'Invalid QR code detected', '#f8d7da', '#721c24');
+                    showError('❌ ACCESS DENIED');
+                }
+            })
+            .catch(error => {
+                console.log('🔍 FRONTEND: Got error:', error);
+                updateScanStatus('❌ Scan Error!', 'Failed to process QR code', '#f8d7da', '#721c24');
+                showError('❌ SCAN ERROR');
+            });
+        }
+
+        async function sendOTP() {
+            showError('OTP sent to patient phone. Use code: 123456');
+            document.getElementById('auth-methods').innerHTML = `
+                <input type="text" id="otp-input" placeholder="Enter 6-digit OTP" maxlength="6">
+                <button onclick="verifyOTP()">Verify OTP</button>
+            `;
+        }
+
+        async function verifyOTP() {
+            const otp = document.getElementById('otp-input').value;
+            
+            try {
+                const response = await fetch('/api/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentPatient.userId, otp })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    await loadPatientData(result.accessToken);
+                } else {
+                    showError('Invalid OTP');
+                }
+            } catch (error) {
+                showError('OTP verification failed');
+            }
+        }
+
+        async function verifyFaceID() {
+            // Simulate Face ID - in real app, use device biometric API
+            const faceData = prompt('Simulate Face ID (enter "your-face-signature" for your profile):');
+            
+            try {
+                const response = await fetch('/api/verify-face', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentPatient.userId, faceData })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    await loadPatientData(result.accessToken);
+                } else {
+                    showError('Face ID verification failed');
+                }
+            } catch (error) {
+                showError('Face ID verification failed');
+            }
+        }
+
+        async function loadPatientData(token) {
+            try {
+                // Record blockchain transaction for data access
+                await recordBlockchainTransaction('DATA_ACCESS', currentPatient.userId);
+                
+                const accessResponse = await fetch('/api/access-patient-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        patientId: currentPatient.userId,
+                        hospitalId: 'hospital-001',
+                        accessToken: token
+                    })
+                });
+                
+                const accessResult = await accessResponse.json();
+                
+                if (accessResult.success) {
+                    formatMedicalData(accessResult.history, currentPatient);
+                    document.getElementById('auth-section').classList.add('hidden');
+                    document.getElementById('data-section').classList.remove('hidden');
+                    
+                    // Show blockchain confirmation
+                    document.getElementById('patient-info').innerHTML += `
+                        <div style="background: #d4edda; padding: 10px; border-radius: 4px; margin: 10px 0; border: 1px solid #c3e6cb;">
+                            <strong>🔗 Blockchain Transaction Recorded</strong><br>
+                            <small>Transaction ID: ${accessResult.transactionId}</small><br>
+                            <small>Wallet: ${currentPatient.walletAddress}</small>
+                        </div>
+                    `;
+                } else {
+                    showError('❌ Failed to access patient data');
+                }
+            } catch (error) {
+                showError('❌ Failed to load patient data');
+            }
+        }
+        
+        // Record blockchain transaction
+        async function recordBlockchainTransaction(type, patientId) {
+            try {
+                await fetch('/api/record-transaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: type,
+                        patientId: patientId,
+                        hospitalId: 'hospital-001',
+                        timestamp: new Date().toISOString()
+                    })
+                });
+            } catch (error) {
+                console.log('Blockchain transaction recording failed:', error);
+            }
+        }
+
+        function formatMedicalData(rawHistory, patient) {
+            // Display patient info
+            document.getElementById('patient-info').innerHTML = `
+                <h4>Patient Information</h4>
+                <p><strong>Name:</strong> ${patient.name}</p>
+                <p><strong>Patient ID:</strong> ${patient.userId}</p>
+                <p><strong>Wallet Address:</strong> <span style="font-family: monospace; font-size: 12px;">${patient.walletAddress}</span></p>
+            `;
+
+            // Parse medical history - split by date entries
+            const lines = rawHistory.split('\n');
+            let medicalInfo = '';
+            let visits = [];
+            let currentVisit = null;
+            let inRecordsSection = false;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                if (line.includes('=== MEDICAL RECORDS ===')) {
+                    inRecordsSection = true;
+                    continue;
+                }
+                
+                if (line.includes('=== CURRENT STATUS ===')) {
+                    if (currentVisit && currentVisit.date) visits.push(currentVisit);
+                    inRecordsSection = false;
+                    continue;
+                }
+                
+                if (!inRecordsSection) {
+                    if (line.includes('Blood Type:')) {
+                        medicalInfo += `<p><strong>Blood Type:</strong> ${line.split('Blood Type:')[1].trim()}</p>`;
+                    } else if (line.includes('Allergies:')) {
+                        medicalInfo += `<p><strong>Allergies:</strong> ${line.split('Allergies:')[1].trim()}</p>`;
+                    } else if (line.includes('Current Conditions:')) {
+                        medicalInfo += `<p><strong>Conditions:</strong> ${line.split('Current Conditions:')[1].trim()}</p>`;
+                    } else if (line.includes('Current Medications:')) {
+                        medicalInfo += `<p><strong>Medications:</strong> ${line.split('Current Medications:')[1].trim()}</p>`;
+                    }
+                } else {
+                    if (line.startsWith('Date:')) {
+                        if (currentVisit && currentVisit.date) visits.push(currentVisit);
+                        currentVisit = { date: line.replace('Date:', '').trim(), hospital: '', doctor: '', notes: '', prescription: '' };
+                    } else if (line.startsWith('Hospital:') && currentVisit) {
+                        currentVisit.hospital = line.replace('Hospital:', '').trim();
+                    } else if (line.startsWith('Doctor:') && currentVisit) {
+                        currentVisit.doctor = line.replace('Doctor:', '').trim();
+                    } else if (line.startsWith('Notes:') && currentVisit) {
+                        currentVisit.notes = line.replace('Notes:', '').trim();
+                    } else if (line.startsWith('Prescription:') && currentVisit) {
+                        currentVisit.prescription = line.replace('Prescription:', '').trim();
+                    }
+                }
+            }
+            if (currentVisit && currentVisit.date) visits.push(currentVisit);
+
+            // Remove duplicates
+            const uniqueVisits = [];
+            const seen = new Set();
+            visits.forEach(visit => {
+                const key = `${visit.hospital}-${visit.date}-${visit.doctor}-${visit.notes}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueVisits.push(visit);
+                }
+            });
+
+            const visitsHtml = uniqueVisits.map(visit => `
+                <div style="border-left: 3px solid #007bff; padding-left: 10px; margin: 10px 0; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                    <strong>${visit.hospital}</strong><br>
+                    <small>Date: ${visit.date}</small><br>
+                    ${visit.doctor ? `Doctor: ${visit.doctor}<br>` : ''}
+                    Note: ${visit.notes}<br>
+                    ${visit.prescription ? `Prescription: ${visit.prescription}` : ''}
+                </div>
+            `).join('');
+            
+            document.getElementById('patient-data').innerHTML = `
+                <h4>Medical Information</h4>
+                ${medicalInfo}
+                <h4>Hospital Visits</h4>
+                ${visitsHtml}
+            `;
+        }
+
+        function updateScanStatus(message, details, bgColor, textColor) {
+            document.getElementById('status-message').innerHTML = message;
+            document.getElementById('status-details').innerHTML = details;
+            document.getElementById('scan-status-display').style.background = bgColor;
+            document.getElementById('status-message').style.color = textColor;
+            document.getElementById('status-details').style.color = textColor;
+        }
+        
+        function resetScanner() {
+            stopCamera(); // Stop camera if running
+            const qrInput = document.getElementById('qr-input');
+            if (qrInput) qrInput.value = '';
+            document.getElementById('scan-section').classList.remove('hidden');
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('data-section').classList.add('hidden');
+            document.getElementById('error-msg').textContent = '';
+            updateScanStatus('⏳ Waiting for QR scan...', 'Ready to scan patient QR codes', '#f8f9fa', '#6c757d');
+            currentPatient = null;
+        }
+
+        function showError(message) {
+            document.getElementById('error-msg').textContent = message;
+        }
+
+        let editableVisits = [];
+        let isRendering = false;
+
+        function editHistory() {
+            // Parse current medical data
+            const patientData = document.getElementById('patient-data').innerHTML;
+            
+            // Extract medical info
+            const bloodType = extractValue(patientData, 'Blood Type:');
+            const allergies = extractValue(patientData, 'Allergies:');
+            const conditions = extractValue(patientData, 'Conditions:');
+            const medications = extractValue(patientData, 'Medications:');
+            
+            document.getElementById('edit-bloodtype').value = bloodType;
+            document.getElementById('edit-allergies').value = allergies;
+            document.getElementById('edit-conditions').value = conditions;
+            document.getElementById('edit-medications').value = medications;
+            
+            // Parse visits
+            editableVisits = parseVisitsFromHTML(patientData);
+            renderVisitsEditor();
+            
+            document.getElementById('edit-section').classList.remove('hidden');
+        }
+
+        function extractValue(html, label) {
+            const regex = new RegExp(`<strong>${label}</strong>\s*([^<]+)`);
+            const match = html.match(regex);
+            return match ? match[1].trim() : '';
+        }
+
+        function parseVisitsFromHTML(html) {
+            const visits = [];
+            const visitDivs = html.match(/<div style="border-left[^>]*>[\s\S]*?<\/div>/g) || [];
+            
+            visitDivs.forEach(div => {
+                const hospital = extractFromDiv(div, '<strong>', '</strong>');
+                const dateMatch = div.match(/Date: ([^<]+)/);
+                const doctorMatch = div.match(/Doctor: ([^<]+)/);
+                const noteMatch = div.match(/Note: ([^<]+)/);
+                const prescriptionMatch = div.match(/Prescription: ([^<]+)/);
+                
+                visits.push({
+                    hospital: hospital || '',
+                    date: dateMatch ? dateMatch[1].trim() : '',
+                    doctor: doctorMatch ? doctorMatch[1].trim() : '',
+                    note: noteMatch ? noteMatch[1].trim() : '',
+                    prescription: prescriptionMatch ? prescriptionMatch[1].trim() : ''
+                });
+            });
+            
+            return visits;
+        }
+
+        function extractFromDiv(div, start, end) {
+            const startIndex = div.indexOf(start);
+            if (startIndex === -1) return '';
+            const endIndex = div.indexOf(end, startIndex + start.length);
+            return div.substring(startIndex + start.length, endIndex === -1 ? div.length : endIndex).trim();
+        }
+
+        function renderVisitsEditor() {
+            if (isRendering) return;
+            isRendering = true;
+            
+            const editor = document.getElementById('visits-editor');
+            editor.innerHTML = `
+                <h5>Existing Visits</h5>
+                ${editableVisits.map((visit, index) => `
+                    <div style="background: #fff3cd; padding: 10px; margin: 5px 0; border-radius: 4px; border: 1px solid #ffeaa7;">
+                        <input type="text" value="${visit.hospital}" onchange="editableVisits[${index}].hospital = this.value" style="width: 100%; margin: 2px 0; padding: 5px;" placeholder="Hospital">
+                        <input type="date" value="${visit.date}" onchange="editableVisits[${index}].date = this.value" style="width: 100%; margin: 2px 0; padding: 5px;">
+                        <input type="text" value="${visit.doctor}" onchange="editableVisits[${index}].doctor = this.value" style="width: 100%; margin: 2px 0; padding: 5px;" placeholder="Doctor">
+                        <textarea onchange="editableVisits[${index}].note = this.value" style="width: 100%; margin: 2px 0; padding: 5px;" rows="2" placeholder="Notes">${visit.note}</textarea>
+                        <textarea onchange="editableVisits[${index}].prescription = this.value" style="width: 100%; margin: 2px 0; padding: 5px;" rows="2" placeholder="Prescription">${visit.prescription}</textarea>
+                        <button onclick="removeVisit(${index})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Remove</button>
+                    </div>
+                `).join('')}
+            `;
+            
+            setTimeout(() => { isRendering = false; }, 100);
+        }
+
+        function addVisit(event) {
+            if (event) event.preventDefault();
+            
+            const hospital = document.getElementById('new-hospital').value.trim();
+            const date = document.getElementById('new-date').value;
+            const doctor = document.getElementById('new-doctor').value.trim();
+            const notes = document.getElementById('new-notes').value.trim();
+            const prescription = document.getElementById('new-prescription').value.trim();
+            
+            if (!hospital || !date) {
+                alert('Hospital and Date are required');
+                return;
+            }
+            
+            editableVisits.push({ hospital, date, doctor, note: notes, prescription });
+            
+            // Clear form
+            document.getElementById('new-hospital').value = '';
+            document.getElementById('new-date').value = '';
+            document.getElementById('new-doctor').value = '';
+            document.getElementById('new-notes').value = '';
+            document.getElementById('new-prescription').value = '';
+            
+            renderVisitsEditor();
+        }
+
+        function removeVisit(index) {
+            editableVisits.splice(index, 1);
+            renderVisitsEditor();
+        }
+
+        async function saveHistory() {
+            // Prevent multiple saves
+            if (window.savingInProgress) return;
+            window.savingInProgress = true;
+            
+            try {
+                // Record blockchain transaction for data update
+                await recordBlockchainTransaction('DATA_UPDATE', currentPatient.userId);
+                
+                // Build new history from form data
+                const bloodType = document.getElementById('edit-bloodtype').value;
+                const allergies = document.getElementById('edit-allergies').value;
+                const conditions = document.getElementById('edit-conditions').value;
+                const medications = document.getElementById('edit-medications').value;
+                
+                // Remove duplicates from editableVisits
+                const uniqueVisits = [];
+                const seen = new Set();
+                
+                editableVisits.forEach(visit => {
+                    const key = `${visit.hospital}-${visit.date}-${visit.doctor}-${visit.note}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueVisits.push(visit);
+                    }
+                });
+                
+                let newHistory = `MEDICAL HISTORY - ${currentPatient.name}\nPatient ID: ${currentPatient.userId}\nWallet Address: ${currentPatient.walletAddress}\n\n=== MEDICAL RECORDS ===\n`;
+                
+                uniqueVisits.forEach(visit => {
+                    newHistory += `Date: ${visit.date}\nHospital: ${visit.hospital}\nDoctor: ${visit.doctor}\nNotes: ${visit.note}\nPrescription: ${visit.prescription}\n\n`;
+                });
+                
+                newHistory += `=== CURRENT STATUS ===\nBlood Type: ${bloodType}\nAllergies: ${allergies}\nCurrent Conditions: ${conditions}\nCurrent Medications: ${medications}\nLast Updated: ${new Date().toISOString().split('T')[0]}`;
+                
+                const response = await fetch('/api/save-history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        patientId: currentPatient.userId, 
+                        history: newHistory,
+                        hospitalId: 'hospital-001'
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    // Update editableVisits with unique visits
+                    editableVisits = uniqueVisits;
+                    // Update display without re-parsing to avoid duplicates
+                    updatePatientDisplay(bloodType, allergies, conditions, medications, uniqueVisits);
+                    document.getElementById('edit-section').classList.add('hidden');
+                    alert('✅ History saved and recorded on blockchain!');
+                } else {
+                    alert('❌ Failed to save history');
+                }
+            } catch (error) {
+                alert('❌ Failed to save history');
+            } finally {
+                window.savingInProgress = false;
+            }
+        }
+        
+        function updatePatientDisplay(bloodType, allergies, conditions, medications, visits) {
+            // Display patient info
+            document.getElementById('patient-info').innerHTML = `
+                <h4>Patient Information</h4>
+                <p><strong>Name:</strong> ${currentPatient.name}</p>
+                <p><strong>Patient ID:</strong> ${currentPatient.userId}</p>
+                <p><strong>Wallet Address:</strong> <span style="font-family: monospace; font-size: 12px;">${currentPatient.walletAddress}</span></p>
+            `;
+            
+            const medicalInfo = `
+                <p><strong>Blood Type:</strong> ${bloodType}</p>
+                <p><strong>Allergies:</strong> ${allergies}</p>
+                <p><strong>Conditions:</strong> ${conditions}</p>
+                <p><strong>Medications:</strong> ${medications}</p>
+            `;
+            
+            const visitsHtml = visits.map(visit => `
+                <div style="border-left: 3px solid #007bff; padding-left: 10px; margin: 10px 0; background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                    <strong>${visit.hospital}</strong><br>
+                    <small>Date: ${visit.date}</small><br>
+                    ${visit.doctor ? `Doctor: ${visit.doctor}<br>` : ''}
+                    Note: ${visit.note}<br>
+                    ${visit.prescription ? `Prescription: ${visit.prescription}` : ''}
+                </div>
+            `).join('');
+            
+            document.getElementById('patient-data').innerHTML = `
+                <h4>Medical Information</h4>
+                ${medicalInfo}
+                <h4>Hospital Visits</h4>
+                ${visitsHtml}
+            `;
+        }
+
+        async function sendBack() {
+            // Prevent multiple clicks
+            if (window.sendingBack) return;
+            window.sendingBack = true;
+            
+            try {
+                // Record blockchain transaction for data return
+                await recordBlockchainTransaction('DATA_RETURN', currentPatient.userId);
+                
+                const response = await fetch('/api/send-back', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        patientId: currentPatient.userId,
+                        hospitalId: 'hospital-001'
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ Medical history sent back to patient and recorded on blockchain!');
+                    resetScanner();
+                } else {
+                    alert('❌ Failed to send back history');
+                }
+            } catch (error) {
+                alert('❌ Failed to send back history');
+            } finally {
+                window.sendingBack = false;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+    "name": "ehr-chaincode",
+    "version": "1.0.0",
+    "description": "EHR Chaincode for Hyperledger Fabric",
+    "main": "ehr-chaincode.js",
+    "dependencies": {
+        "fabric-contract-api": "^2.4.1",
+        "fabric-shim": "^2.4.1",
+        "bcrypt": "^5.1.1"
+    }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "contract-runner",
+  "version": "1.0.0",
+  "description": "Secure microservice gateway for Hyperledger Fabric chaincode invocations",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": ["blockchain", "hyperledger", "fabric", "security", "gateway"],
+  "author": "MediGuard",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
+    "express-rate-limit": "^6.7.0",
+    "joi": "^17.9.2",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
